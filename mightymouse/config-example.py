@@ -1,0 +1,59 @@
+
+# MAM Information 
+# Session ID - create one here: https://www.myanonamouse.net/preferences/index.php?view=security
+# I actually have 2 MAM_IDs here because I run with a VPN and without and I switch between them depending on whether I'm connected to the VPN or not. 
+# You only need one MAM_ID, but you can have multiple if you want to switch between accounts or use with/without a VPN like I do.
+MAM_ID = "" # MyAnonaMouse session ID
+#MAM_ID = "" # MyAnonaMouse session ID with VPN (if applicable)
+
+# MAM login information
+MAM_USER_EMAIL = "" # MyAnonaMouse email address or username
+MAM_USER_PASS = "" # MyAnonaMouse password 
+RUN_INTERVAL = 60 * 60 # Time in seconds the script should wait between runs (default is 1 hour)   
+MAM_OPEN_SLOTS = 5 # Number of download slots to keep open (set to 0 to disable)
+MAM_DOWNLOAD_ENABLED = False # Set to False to disable downloading torrents (still checks for new torrents and sends notifications if enabled)
+
+# QBittorrent Information
+QBITTORRENT_URL = r"http://localhost" # qBittorrent URL (leave as http://localhost if running on the same machine)
+QBITTORRENT_PORT = "8080" # qBittorrent port (leave as 8080 if running on the same machine)
+QBITTORRENT_USERNAME = "admin" # qBittorrent username
+QBITTORRENT_PASSWORD = "admin" # qBittorrent password
+
+# Spend Bonus Points?
+BUY_UPLOAD = False # Automatically buy upload (requires Selenium and ChromeDriver, leave False to disable)
+BUY_VIP = False # Automatically try to keep VIP full (requires Selenium and ChromeDriver, leave False to disable)
+
+# QBT Automation Options
+# AUTO_EXTRACT_DIR = "" # Automatically extract the downloaded torrents to specified directory (leave blank to disable)
+# Add this as a watched folder in qBittorrent to automatically add torrents to qBittorrent once extracted
+AUTO_EXTRACT_DIR = "C:\\downloads\\mam\\" 
+# Automatically delete batch archive files once automatically added to qBittorrent
+AUTO_DEL_BATCH = True 
+
+# Debug flag - set to True to enable verbose print statements
+DEBUG = False
+
+#Torrent categories in qBittorrent
+CAT_UNSAT = "MAM_UNSAT" # qBittorrent category for unsaturated torrents
+CAT_SAT = "MAM_SAT" # qBittorrent category for saturated torrents
+
+# MAM Torrent search criteria (shouldn't have to change these, but you can if you want to customize the search)
+# More information: https://www.myanonamouse.net/api/endpoint.php/1/tor/js/loadSearchJSONbasic.php
+SKIP = ['sSat', 'unsat', 'leeching'] # sSat, unsat, inactHnr, inactUnsat, upInact, inactSat, seedUnsat, seedHnr, leeching, upAct
+SEARCH = { 
+    "tor": {
+        "searchType": "fl", # fl-VIP, fl, nVIP, VIP, nMeta, inactive, active, all
+        "minSize": 0, # 0 to disable
+        "maxSize": 0, # 0 to disable
+        #"unit": 1048576, # Size unit in bytes (1048576 for MB, 1073741824 for GB)
+        "startNumber": 0,
+    },
+    "perpage":20
+}
+
+# Total payload budget for qBittorrent categories CAT_UNSAT + CAT_SAT.
+# Staged .torrent payload sizes are reserved too.
+STORAGE_LIMIT_GIB = 300
+
+# Simulate mutations when True.
+DRY_RUN = True

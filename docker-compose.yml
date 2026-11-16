@@ -1,0 +1,46 @@
+services:
+  mam-controller:
+    build: {context: ., args: {MIGHTYMOUSE_REF: master}}
+    container_name: mam-controller
+    restart: unless-stopped
+    networks: [media_net]
+    environment:
+      TZ: Europe/Berlin
+      JELLYFIN_URL: http://jellyfin:8096
+      JELLYFIN_API_KEY: CHANGE_ME
+      QBIT_HOST: gluetun
+      QBIT_PORT: "8080"
+      QBIT_USERNAME: CHANGE_ME
+      QBIT_PASSWORD: CHANGE_ME
+      POLL_INTERVAL: "10"
+      INCREASE_DELAY: "60"
+      QBIT_LIMIT_0_STREAMS_MIB: "4.0"
+      QBIT_LIMIT_1_STREAM_MIB: "2.0"
+      QBIT_LIMIT_2_STREAMS_MIB: "1.0"
+      QBIT_LIMIT_3PLUS_STREAMS_MIB: "0.5"
+      LOCAL_NETWORKS: "192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
+      DRY_RUN: "true"
+      BANDWIDTH_DRY_RUN: "true"
+      RUN_MIGHTYMOUSE: "true"
+      RUN_BANDWIDTH_CONTROLLER: "true"
+      RUN_STORAGE_GUARD: "true"
+      STORAGE_LIMIT_GIB: "300"
+      STORAGE_GUARD_INTERVAL: "5"
+      STORAGE_GUARD_CONFIRM_TIMEOUT: "90"
+      MAM_CATEGORIES: "MAM_UNSAT,MAM_SAT"
+      MAM_BASE_URL: "https://www.myanonamouse.net"
+      MAM_API_HEALTH_TIMEOUT: "12"
+    healthcheck:
+      test: ["CMD", "python", "/opt/controller/mam_api_healthcheck.py"]
+      interval: 5m
+      timeout: 20s
+      retries: 2
+      start_period: 30s
+    volumes:
+      - /mnt/user/appdata/mam-controller/config:/config
+      - /mnt/user/appdata/mam-controller/staging:/staging
+      - /mnt/user/appdata/mam-controller/watch:/watch
+      - /mnt/user/appdata/mam-controller/blocked:/blocked
+      - /mnt/user/downloads/mam-seed:/data/mam-seed
+networks:
+  media_net: {external: true}
