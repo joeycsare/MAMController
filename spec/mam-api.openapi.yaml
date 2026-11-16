@@ -1,0 +1,859 @@
+openapi: 3.1.0
+info:
+  title: MyAnonamouse API
+  version: 0.1.0
+  description: |
+    Machine-readable OpenAPI 3.1 representation of the supplied MyAnonamouse API documentation
+    (`mamapi.txt`).
+
+    Authentication uses a pre-created session cookie. The supplied documentation only says
+    "valid session cookie"; the cookie name `mam_id` and its creation under
+    Preferences -> Security are NOT stated there (not in source). This specification
+    intentionally defines no username/password login flow.
+
+    HTTP methods: the supplied documentation names methods only for the search endpoint
+    (GET and POST). GET is an assumption for all other operations.
+
+    Automation notes from the supplied documentation:
+    - Automated `gift` and `sendWedge` operations are not permitted (single call or batch
+      process from direct user input via user scripts only).
+    - Torrent download parameter `fl` can spend a freeleech wedge (no refunds, also on VIP
+      torrents) and should never be set implicitly.
+    - The documentation makes no statement about automating `upload`, `VIP` or `wedges`.
+      Keeping them opt-in is a project policy, not a documented rule.
+
+    Error responses, the bonusBuy response body and download content types are not documented
+    in the supplied documentation (not in source).
+servers:
+  - url: https://www.myanonamouse.net
+    description: MyAnonamouse
+security:
+  - mamSession: []
+
+tags:
+  - name: Account
+  - name: Torrents
+  - name: Bonus
+
+paths:
+  /jsonLoad.php:
+    get:
+      tags: [Account]
+      operationId: getUserData
+      summary: Get MAM user/account data
+      description: 'Returns user data. Optional flags add client statistics, notifications, pretty output, or snatch-summary information. The flags only apply when id is not set. The output structures for clientStats and snatch_summary are not documented in the source.'
+      parameters:
+        - $ref: '#/components/parameters/ClientStats'
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Notif'
+        - $ref: '#/components/parameters/Pretty'
+        - $ref: '#/components/parameters/SnatchSummary'
+      responses:
+        '200':
+          description: User/account data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserData'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+
+  /tor/js/loadSearchJSONbasic.php:
+    get:
+      tags: [Torrents]
+      operationId: searchTorrentsGet
+      summary: Search torrents using query/form-style parameters
+      description: |
+        Searches torrents and returns JSON. The supplied documentation states that the endpoint accepts
+        GET as well as POST bodies encoded using JSON, XML, multipart form data, or URL-encoded form data.
+        The POST JSON representation is the canonical form in this specification.
+      parameters:
+        - name: tor
+          in: query
+          required: true
+          style: deepObject
+          explode: true
+          description: |
+            Search parameters (marked REQUIRED in the source). Serialized as tor[text]=...,
+            tor[sortType]=..., tor[cat][]=... and so on; the source's URL-encoded example uses
+            tor[cat][]=0. OpenAPI does not standardize deepObject serialization of nested arrays.
+          schema:
+            $ref: '#/components/schemas/TorrentSearchParameters'
+        - name: perpage
+          in: query
+          required: false
+          description: Number of results, 5 to 1000.
+          schema:
+            type: integer
+            minimum: 5
+            maximum: 1000
+        - name: description
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: If set, returns the full description field of each torrent.
+          schema:
+            type: string
+        - name: dlLink
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: 'If set, returns the user-specific download hash in the dl field. See the path /tor/download.php/{hash}.'
+          schema:
+            type: string
+        - name: isbn
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: If set, returns the isbn field (often blank).
+          schema:
+            type: string
+        - name: mediaInfo
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: If set, returns the key parts of the media info.
+          schema:
+            type: string
+        - name: my_snatched
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: If set, limits results to torrents you have snatched.
+          schema:
+            type: string
+        - name: bannerLink
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: Appears only in the source's URL-encoded example input. Meaning not documented.
+          schema:
+            type: string
+        - name: bookmarks
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: Appears only in the source's URL-encoded example input. Meaning not documented.
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/TorrentSearchResponse'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+    post:
+      tags: [Torrents]
+      operationId: searchTorrents
+      summary: Search torrents
+      description: |
+        POST variant of the search. The source states that the body may be application/json,
+        application/xml, multipart/form-data or application/x-www-form-urlencoded.
+        URL-encoded example input from the source:
+
+            tor%5Bcat%5D%5B%5D=0&tor%5BsortType%5D=default&tor%5BbrowseStart%5D=true&tor%5BstartNumber%5D=0&bannerLink&bookmarks&dlLink&description&tor%5Btext%5D=mp3%20m4a
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TorrentSearchRequest'
+            examples:
+              audiobookSearch:
+                summary: Audiobook search example
+                value:
+                  tor:
+                    text: collection cookbooks food test kitchen
+                    srchIn: [title, author, narrator]
+                    searchType: all
+                    searchIn: torrents
+                    cat: ['0']
+                    browseFlagsHideVsShow: '0'
+                    startDate: ''
+                    endDate: ''
+                    hash: ''
+                    sortType: default
+                    startNumber: '0'
+                  thumbnail: 'true'
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: true
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: true
+          application/xml:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/TorrentSearchResponse'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+
+  /tor/download.php:
+    get:
+      tags: [Torrents]
+      operationId: downloadTorrent
+      summary: Download a torrent file
+      description: |
+        Downloads a torrent by ID using the authenticated MAM session.
+        Without a session cookie, use the hash-based path /tor/download.php/{hash} instead.
+
+        Safety: the optional `fl` parameter may spend a freeleech wedge (also on VIP torrents,
+        no refunds) and must not be added implicitly.
+      parameters:
+        - name: tid
+          in: query
+          required: true
+          description: Torrent ID.
+          schema:
+            $ref: '#/components/schemas/TorrentId'
+        - name: fl
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: 'If present, spends a freeleech wedge to make the torrent personal freeleech (if it is not already). Also spends on VIP torrents. No refund is available.'
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/TorrentFile'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+
+  /tor/download.php/{hash}:
+    get:
+      tags: [Torrents]
+      operationId: downloadTorrentByHash
+      summary: Download a torrent file using the user-specific download hash
+      description: |
+        Alternative for clients without a session cookie. Request the search endpoint with
+        `dlLink` set, take the `dl` value of the result, append it to /tor/download.php/ and add
+        `?tid=<id>`.
+
+        The source does not say whether `fl` is accepted on this route; it is not modelled here.
+      security: []
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          description: Value of the `dl` field from the search results, inserted as returned.
+          schema:
+            type: string
+        - name: tid
+          in: query
+          required: true
+          description: Torrent ID.
+          schema:
+            $ref: '#/components/schemas/TorrentId'
+      responses:
+        '200':
+          $ref: '#/components/responses/TorrentFile'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+
+  /json/bonusBuy.php:
+    get:
+      tags: [Bonus]
+      operationId: buyBonusItem
+      summary: Purchase a supported bonus-store item
+      description: |
+        Backend for the MAM bonus store.
+
+        Automation statements in the supplied documentation:
+        - `gift`: must not be automated.
+        - `sendWedge`: must not be automated.
+          (Both may only be run as a single call or batch process from direct user input via
+          user scripts.)
+        - `upload`, `VIP`, `wedges`: no statement about automation. Keeping these opt-in is a
+          project policy, not a documented rule. No parameters are documented for `wedges`.
+
+        The source documents no response body. It only says the call errors when buying less
+        than 50 GiB of upload or more than is affordable.
+      parameters:
+        - name: spendtype
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/BonusSpendType'
+        - name: amount
+          in: query
+          required: false
+          description: 'Required for spendtype upload. Integer 50 or higher (GiB), or the exact string `Max Affordable ` including the trailing space. Errors when buying less than 50 GiB total or more than affordable.'
+          schema:
+            oneOf:
+              - type: integer
+                minimum: 50
+              - type: string
+                const: 'Max Affordable '
+        - name: duration
+          in: query
+          required: false
+          description: 'Required with spendtype VIP (the source writes spendtype=vip here). Via the API only `max` is accepted: fills up to the 90-day limit and buys a minimum of 7 days (604800 seconds).'
+          schema:
+            type: string
+            const: max
+        - name: giftTo
+          in: query
+          required: false
+          description: User ID or username for gift or sendWedge. These operations must not be automated.
+          schema:
+            oneOf:
+              - type: integer
+              - type: string
+      responses:
+        '200':
+          description: Bonus purchase result (response structure not documented in the source)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusPurchaseResult'
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+
+  /json/userBonusHistory.php:
+    get:
+      tags: [Bonus]
+      operationId: getUserBonusHistory
+      summary: Get bonus-point and freeleech-wedge transaction history
+      parameters:
+        - name: other_userid
+          in: query
+          required: false
+          description: User ID of the other side of the transaction for gifts (points or wedges).
+          schema:
+            type: integer
+        - name: type[]
+          in: query
+          required: false
+          description: Which elements to show. Example input type[]=giftWedge&type[]=wedgePF&type[]=wedgeGFL.
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/BonusHistoryType'
+      responses:
+        '200':
+          description: Bonus transaction history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BonusHistoryEntry'
+              examples:
+                wedgeHistory:
+                  value:
+                    - timestamp: 1644804607.0994999
+                      amount: -1
+                      type: wedgePF
+                      tid: 330896
+                      title: 1984
+                      other_userid: null
+                      other_name: null
+                    - timestamp: 1641914230.1078
+                      amount: -1
+                      type: giftWedge
+                      tid: null
+                      title: null
+                      other_userid: 192566
+                      other_name: pezzap7
+                    - timestamp: 1610486584.1027
+                      amount: -10
+                      type: wedgeGFL
+                      tid: 220870
+                      title: Asimov's Robot, Empire, and Foundation Series
+                      other_userid: null
+                      other_name: null
+        '401':
+          $ref: '#/components/responses/AuthenticationError'
+        '403':
+          $ref: '#/components/responses/AuthorizationError'
+
+components:
+  securitySchemes:
+    mamSession:
+      type: apiKey
+      in: cookie
+      name: mam_id
+      description: 'Valid MAM session cookie. The cookie name mam_id and its creation under Preferences -> Security are not stated in the supplied documentation (not in source). No username/password login flow is defined by this specification.'
+
+  parameters:
+    ClientStats:
+      name: clientStats
+      in: query
+      required: false
+      allowEmptyValue: true
+      description: If set and `id` is absent, include client list, torrent counts, and connectable status. The supplied docs note a 30-minute cache.
+      schema:
+        type: string
+    UserId:
+      name: id
+      in: query
+      required: false
+      description: User ID whose data should be returned.
+      schema:
+        type: integer
+    Notif:
+      name: notif
+      in: query
+      required: false
+      allowEmptyValue: true
+      description: If set and `id` is absent, include notifications.
+      schema:
+        type: string
+    Pretty:
+      name: pretty
+      in: query
+      required: false
+      allowEmptyValue: true
+      description: If set and `id` is absent, pretty-print JSON.
+      schema:
+        type: string
+    SnatchSummary:
+      name: snatch_summary
+      in: query
+      required: false
+      allowEmptyValue: true
+      description: If set and `id` is absent, include the basic torrent breakdown from the snatch summary.
+      schema:
+        type: string
+
+  responses:
+    TorrentSearchResponse:
+      description: Torrent search results
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TorrentSearchResponse'
+    TorrentFile:
+      description: Torrent file. The content types are not stated in the source (not in source).
+      content:
+        application/x-bittorrent:
+          schema:
+            type: string
+            contentEncoding: binary
+        application/octet-stream:
+          schema:
+            type: string
+            contentEncoding: binary
+    AuthenticationError:
+      description: Missing or invalid MAM session. Generic placeholder, the source documents no error responses (not in source).
+    AuthorizationError:
+      description: MAM rejected the session or operation. Generic placeholder, the source documents no error responses (not in source).
+
+  schemas:
+    TorrentId:
+      oneOf:
+        - type: integer
+          minimum: 1
+        - type: string
+          pattern: '^[0-9]+$'
+
+    UserData:
+      type: object
+      description: 'Fields per the source output table. The source does not say which fields are always present. The output structures for clientStats and snatch_summary are not documented.'
+      properties:
+        classname:
+          type: string
+        downloaded:
+          type: string
+          description: Formatted downloaded amount.
+        notifs:
+          type: object
+          additionalProperties: true
+        ratio:
+          type: string
+        seedbonus:
+          type: integer
+        uid:
+          type: string
+          description: ID of the user.
+        uploaded:
+          type: string
+          description: Formatted uploaded amount.
+        username:
+          type: string
+        vip_until:
+          description: 'Only when viewing yourself with a VIP rank (source). A null value is not documented but tolerated.'
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        snatch_summary:
+          type: object
+          description: 'Assumed key for the data added by the snatch_summary flag. Its name and structure are not documented (not in source).'
+          additionalProperties: true
+      additionalProperties: true
+
+    MainCategoryId:
+      type: integer
+      enum: [13, 14, 15, 16]
+      x-enum-descriptions:
+        '13': AudioBooks
+        '14': E-Books
+        '15': Musicology
+        '16': Radio
+
+    TorrentSearchType:
+      type: string
+      enum: [all, active, inactive, fl, fl-VIP, VIP, nVIP, nMeta]
+
+    TorrentSearchField:
+      type: string
+      enum: [author, description, filenames, fileTypes, narrator, series, tags, title]
+
+    TorrentSortType:
+      type: string
+      enum:
+        - titleAsc
+        - titleDesc
+        - fileAsc
+        - fileDesc
+        - sizeAsc
+        - sizeDesc
+        - seedersAsc
+        - seedersDesc
+        - leechersAsc
+        - leechersDesc
+        - snatchedAsc
+        - snatchedDesc
+        - dateAsc
+        - dateDesc
+        - bmkaAsc
+        - bmkaDesc
+        - reseedAsc
+        - reseedDesc
+        - categoryAsc
+        - categoryDesc
+        - random
+        - default
+      description: |
+        Sort mode. The supplied documentation appears internally inconsistent for `titleAsc` and `titleDesc`,
+        describing `titleAsc` as descending and `titleDesc` as ascending. This specification intentionally does
+        not reinterpret those two names beyond preserving them as accepted enum values.
+
+        `default`: with a text search, by weight descending then ID descending; otherwise, if
+        `searchIn` is `myReseed` or `allReseed`, same as `reseedAsc`; otherwise, if `searchIn` is
+        `Bookmarks`, same as `bmkaDesc`; otherwise same as `dateDesc`.
+
+    TorrentSearchParameters:
+      type: object
+      properties:
+        browse_lang:
+          type: array
+          items:
+            type: integer
+        cat:
+          type: array
+          items:
+            oneOf:
+              - type: integer
+              - type: string
+                pattern: '^[0-9]+$'
+        endDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: integer
+              description: Unix timestamp.
+            - type: string
+              const: ''
+        hash:
+          type: string
+          description: Hexadecimal-encoded hash of a torrent. The source does not say which hash.
+          pattern: '^$|^[A-Fa-f0-9]+$'
+        id:
+          $ref: '#/components/schemas/TorrentId'
+        main_cat:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/MainCategoryId'
+              - type: string
+                enum: ['13', '14', '15', '16']
+        searchIn:
+          type: string
+          description: 'Search area. The source calls this an enum with "list to come", so the complete list is unknown. Values seen in the source: torrents (JSON example), myReseed, allReseed, Bookmarks (named in the default sort rules).'
+          examples: [torrents, myReseed, allReseed, Bookmarks]
+        searchType:
+          $ref: '#/components/schemas/TorrentSearchType'
+        sortType:
+          $ref: '#/components/schemas/TorrentSortType'
+        srchIn:
+          type: array
+          items:
+            $ref: '#/components/schemas/TorrentSearchField'
+        startDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: integer
+              description: Unix timestamp.
+            - type: string
+              const: ''
+        startNumber:
+          oneOf:
+            - type: integer
+              minimum: 0
+            - type: string
+              pattern: '^[0-9]+$'
+        text:
+          type: string
+        browseFlagsHideVsShow:
+          description: Appears only in the source's JSON example input (value "0"). Meaning not documented.
+          oneOf:
+            - type: integer
+            - type: string
+        browseStart:
+          description: Appears only in the source's URL-encoded example input (value true). Meaning not documented.
+          oneOf:
+            - type: boolean
+            - type: string
+      additionalProperties: true
+
+    TorrentSearchRequest:
+      type: object
+      required: [tor]
+      properties:
+        description:
+          type: string
+          description: If set, returns the full description field.
+        dlLink:
+          type: string
+          description: If set, returns the user-specific download hash in the dl field.
+        isbn:
+          type: string
+          description: If set, returns the isbn field (often blank).
+        mediaInfo:
+          type: string
+          description: If set, returns the key parts of the media info.
+        my_snatched:
+          type: string
+          description: If set, limits results to torrents you have snatched.
+        bannerLink:
+          type: string
+          description: Appears only in the source's URL-encoded example input. Meaning not documented.
+        bookmarks:
+          type: string
+          description: Appears only in the source's URL-encoded example input. Meaning not documented.
+        perpage:
+          type: integer
+          minimum: 5
+          maximum: 1000
+        thumbnail:
+          oneOf:
+            - type: boolean
+            - type: string
+        tor:
+          $ref: '#/components/schemas/TorrentSearchParameters'
+      additionalProperties: true
+
+    Torrent:
+      type: object
+      description: 'Fields per the source field table, plus keys seen only in the source example output (name, w, filetype, description). The example returns numeric and boolean-like values as strings, e.g. "273200" and "0".'
+      properties:
+        added:
+          type: string
+          format: date-time
+        author_info:
+          type: string
+          description: JSON-encoded author ID/name object according to the supplied documentation.
+        bookmarked:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        browseflags:
+          oneOf:
+            - type: integer
+            - type: string
+        cat:
+          type: string
+        category:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        catname:
+          type: string
+        comments:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        dl:
+          type: string
+          description: 'User-specific download hash, returned when dlLink is set. Use it as /tor/download.php/{dl}?tid={id}; works without a session cookie.'
+        filetypes:
+          type: string
+        fl_vip:
+          $ref: '#/components/schemas/Booleanish'
+        free:
+          $ref: '#/components/schemas/Booleanish'
+        id:
+          $ref: '#/components/schemas/TorrentId'
+        lang_code:
+          type: string
+          minLength: 3
+          maxLength: 3
+        language:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        leechers:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        main_cat:
+          oneOf:
+            - $ref: '#/components/schemas/MainCategoryId'
+            - type: string
+              enum: ['13', '14', '15', '16']
+        my_snatched:
+          $ref: '#/components/schemas/Booleanish'
+        narrator_info:
+          type: string
+          description: JSON-encoded narrator ID/name object according to the supplied documentation.
+        numfiles:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        owner:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        owner_name:
+          type: string
+        personal_freeleech:
+          $ref: '#/components/schemas/Booleanish'
+        seeders:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        series_info:
+          type: string
+          description: JSON-encoded series metadata according to the supplied documentation.
+        size:
+          type: string
+          description: 'Size of the torrent. In the source example it is a string of decimal digits. The unit is not stated; presumably bytes (inference).'
+          examples: ['6324306932']
+        tags:
+          type: string
+        times_completed:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+        title:
+          type: string
+          description: 'Listed as title in the source field table, but the source example output uses name instead. See name.'
+        vip:
+          $ref: '#/components/schemas/Booleanish'
+        name:
+          type: string
+          description: 'Appears in the source example output where the field table says title. Not in the source field table.'
+        filetype:
+          type: string
+          description: 'Appears in the source example output (singular), where the field table says filetypes. Not in the source field table.'
+        w:
+          type: string
+          description: 'Appears in the source example output. Undocumented, possibly the text-search weight (inference).'
+        description:
+          type: string
+          description: 'Full description (BBCode), returned when the description parameter is set. Not in the source output table.'
+      required: [id]
+      additionalProperties: true
+
+    TorrentSearchResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Torrent'
+        total:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+          description: Results loaded by the server; may increase as later pages are requested.
+        total_found:
+          oneOf:
+            - type: integer
+            - type: string
+              pattern: '^[0-9]+$'
+          description: Total search results found.
+      required: [data]
+      additionalProperties: true
+
+    Booleanish:
+      description: The supplied examples may encode boolean-like values as strings (`0`/`1`) rather than JSON booleans.
+      oneOf:
+        - type: boolean
+        - type: integer
+          enum: [0, 1]
+        - type: string
+          enum: ['0', '1']
+
+    BonusSpendType:
+      type: string
+      enum: [VIP, upload, wedges, gift, sendWedge]
+      description: 'gift and sendWedge may not be automated according to the supplied documentation. For upload, VIP and wedges the source makes no automation statement. Casing: the source lists VIP here but writes spendtype=vip in the duration note; case sensitivity is unverified.'
+
+    BonusPurchaseResult:
+      type: object
+      description: 'The source documents no response body for bonusBuy.php. It only says the call errors when buying less than 50 GiB or more than is affordable. The structure is unknown.'
+      additionalProperties: true
+
+    BonusHistoryType:
+      type: string
+      enum: [giftPoints, giftWedge, wedgePF, wedgeGFL, torrentThanks, millionaires]
+
+    BonusHistoryEntry:
+      type: object
+      properties:
+        timestamp:
+          type: number
+        amount:
+          type: number
+        type:
+          $ref: '#/components/schemas/BonusHistoryType'
+        tid:
+          oneOf:
+            - $ref: '#/components/schemas/TorrentId'
+            - type: 'null'
+        title:
+          oneOf:
+            - type: string
+            - type: number
+            - type: 'null'
+        other_userid:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+        other_name:
+          oneOf:
+            - type: string
+            - type: 'null'
+      additionalProperties: true

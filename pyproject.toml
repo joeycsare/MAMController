@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mam-controller"
+version = "0.1.0"
+description = "MAM freeleech farming, qBittorrent storage protection, and Jellyfin-aware upload control"
+requires-python = ">=3.12"
+dependencies = [
+  "requests>=2.32,<3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3,<9", "PyYAML>=6.0,<7"]
+
+[project.scripts]
+mam-controller = "mam_controller.main:main"
+mam-healthcheck = "mam_controller.healthcheck:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

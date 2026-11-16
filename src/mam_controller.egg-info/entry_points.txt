@@ -1,0 +1,3 @@
+[console_scripts]
+mam-controller = mam_controller.main:main
+mam-healthcheck = mam_controller.healthcheck:main

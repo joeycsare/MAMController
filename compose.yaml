@@ -1,0 +1,21 @@
+services:
+  mam-controller:
+    image: ghcr.io/YOUR_GITHUB_USER/mam-controller:edge
+    container_name: mam-controller
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - media_net
+    volumes:
+      - /mnt/user/downloads/mam-seed:/data/mam-seed
+    healthcheck:
+      test: ["CMD", "mam-healthcheck"]
+      interval: 5m
+      timeout: 30s
+      retries: 2
+      start_period: 30s
+
+networks:
+  media_net:
+    external: true

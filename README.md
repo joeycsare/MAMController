@@ -1,7 +1,23 @@
-# mam-controller complete
+# mam-controller
 
-Pinned supplied MightyMouse with MAM API health gate, 300 GiB planning/admission limits, Jellyfin bandwidth controller, and full dry-run controls.
+Clean, environment-only replacement for the earlier bundled MightyMouse container.
 
-Defaults are `DRY_RUN=true` and `BANDWIDTH_DRY_RUN=true`. No torrents are downloaded, no qBittorrent categories or watched-folder files are changed, no bonus purchases occur, and no upload limit is changed. Read-only API checks and plans still run.
+## Features
+- Uses only a pre-created `MAM_ID` session cookie. No email/password or Selenium login.
+- Searches documented MAM torrent API endpoints for audiobook freeleech candidates.
+- Verifies actual `.torrent` payload size before adding to qBittorrent.
+- Enforces a hard qBittorrent category budget with a configurable reserve.
+- Starts safely in complete dry-run mode.
+- Dynamically reduces qBittorrent upload bandwidth for external Jellyfin streams.
+- Publishes `edge`, `main`, semantic-version, and SHA images using GitHub Actions.
 
-Configure `/config/config.py`, use `AUTO_EXTRACT_DIR="/staging"`, and keep `MAM_DOWNLOAD_ENABLED=False` initially. For live operation set both dry-run variables to `false`, set `MAM_DOWNLOAD_ENABLED=True`, and recreate the container. qBittorrent watches `/watch`, never `/staging`.
+## Important limitation
+The supplied API reference does not document the structure required to determine whether an individual torrent has become satisfied. This build therefore adds new farm torrents to `MAM_UNSAT` but does not automatically move them to `MAM_SAT`. Do not auto-delete `MAM_UNSAT` torrents. Add SAT synchronization only after a documented or verified API contract and tests are available.
+
+## Start
+1. Copy `.env.example` to `.env` and fill `MAM_ID`, qBittorrent, and Jellyfin values.
+2. Replace `YOUR_GITHUB_USER` in `compose.yaml`.
+3. Keep `DRY_RUN=true` and `BANDWIDTH_DRY_RUN=true` for first deployment.
+4. Run `docker compose up -d`.
+5. Review logs: `docker logs -f mam-controller`.
+6. Enable each mutation independently after validation.
